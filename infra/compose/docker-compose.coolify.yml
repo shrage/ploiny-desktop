@@ -11,7 +11,7 @@ services:
   computer:
     image: rakazo/computer:local
     build:
-      context: ../sandboxes/computer
+      context: infra/sandboxes/computer
     command: ["true"]
     restart: "no"
     networks:
@@ -19,14 +19,14 @@ services:
 
   supervisor:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/sandboxes/supervisor/Dockerfile
     restart: unless-stopped
     init: true
     security_opt:
       - no-new-privileges:true
     env_file:
-      - ../../.env
+      - .env
     environment:
       DATA_DIR: /data
       SUPERVISOR_HOST: 0.0.0.0
@@ -48,7 +48,7 @@ services:
 
   api:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/compose/Dockerfile
       args:
         GIT_SHA: ${GIT_SHA:-}
@@ -65,7 +65,7 @@ services:
     pids_limit: 256
     mem_limit: 1536m
     env_file:
-      - ../../.env
+      - .env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -98,7 +98,7 @@ services:
 
   worker:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/compose/Dockerfile
     restart: unless-stopped
     command: ["pnpm", "--filter", "@rakazo/worker", "start"]
@@ -110,7 +110,7 @@ services:
     pids_limit: 512
     mem_limit: 2g
     env_file:
-      - ../../.env
+      - .env
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -129,7 +129,7 @@ services:
 
   web:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/compose/Dockerfile
     restart: unless-stopped
     command: ["pnpm", "--filter", "@rakazo/web", "preview", "--host", "0.0.0.0", "--port", "5173"]
@@ -141,11 +141,10 @@ services:
     pids_limit: 128
     mem_limit: 512m
     env_file:
-      - ../../.env
+      - .env
     environment:
       NODE_ENV: production
       API_PROXY_TARGET: http://api:3100
-      SERVICE_URL_WEB_5173: ${SERVICE_URL_WEB_5173}
     expose:
       - "5173"
     networks:
