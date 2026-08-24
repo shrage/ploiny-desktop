@@ -9,6 +9,6 @@ RUN install -d -m 750 -o node -g node /data /app/apps/web/node_modules/.vite-tem
 ARG GIT_SHA
 ENV NODE_ENV=production
 ENV GIT_SHA=$GIT_SHA
-EXPOSE 3100 5173 7091
+EXPOSE 5173
 USER node
 CMD ["pnpm", "--filter", "@rakazo/api", "start"]
