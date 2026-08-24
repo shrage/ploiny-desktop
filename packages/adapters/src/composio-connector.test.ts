@@ -317,6 +317,68 @@ describe("composio tool mapping", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("uses Composio discovery tools for a multi-account app instead of an incompatible direct-tools session", async () => {
+    let createdConfig: Record<string, unknown> | undefined;
+    const session = {
+      sessionId: "session-drive",
+      tools: async () => [
+        {
+          type: "function",
+          function: {
+            name: "COMPOSIO_SEARCH_TOOLS",
+            description: "Search the connected app tools",
+            parameters: { type: "object", properties: { query: { type: "string" } } },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            description: "Execute a discovered tool",
+            parameters: { type: "object", properties: {} },
+          },
+        },
+      ],
+    };
+    const fake = {
+      create: async (_userId: string, config: Record<string, unknown>) => {
+        createdConfig = config;
+        return session;
+      },
+      sessions: { use: async () => session },
+    } as unknown as Composio;
+    const connector = new ComposioConnector(fake);
+    const context = {
+      userId: "u",
+      connectedConnections: [
+        {
+          id: "drive-one",
+          connectorId: "composio",
+          externalId: "googledrive",
+          displayName: "Personal",
+          providerRef: "ca_personal",
+        },
+        {
+          id: "drive-two",
+          connectorId: "composio",
+          externalId: "googledrive",
+          displayName: "Work",
+          providerRef: "ca_work",
+        },
+      ],
+    } as AdapterContext;
+
+    await expect(connector.discoverTools(context)).resolves.toMatchObject([
+      { name: "COMPOSIO_SEARCH_TOOLS" },
+      { name: "COMPOSIO_MULTI_EXECUTE_TOOL" },
+    ]);
+    expect(createdConfig).toMatchObject({
+      connectedAccounts: { googledrive: ["ca_personal", "ca_work"] },
+      multiAccount: { enable: true, requireExplicitSelection: true },
+    });
+    expect(createdConfig).not.toHaveProperty("sessionPreset");
+  });
+
   it("checks the exact connected account before completing a multi-account authorization", async () => {
     const get = vi.fn().mockResolvedValue({
       id: "ca_work",

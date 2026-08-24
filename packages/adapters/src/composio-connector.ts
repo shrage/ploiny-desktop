@@ -252,12 +252,15 @@ export class ComposioConnector implements ComposioProvider {
         this.executeSessions.delete(userId);
       }
     }
+    const accountOptions = buildComposioMultiAccountOptions(accounts);
+    const hasMultipleAccounts = accounts.length > 1;
     const session = await composio.create(userId, {
       manageConnections: false,
       sandbox: { enable: false },
       toolkits: toolkitKey.split(","),
-      sessionPreset: "direct_tools",
-      ...buildComposioMultiAccountOptions(accounts),
+      ...(accounts.length > 0 ? { connectedAccounts: accountOptions.connectedAccounts } : {}),
+      ...(hasMultipleAccounts ? { multiAccount: accountOptions.multiAccount } : {}),
+      ...(hasMultipleAccounts ? {} : { sessionPreset: "direct_tools" }),
     });
     this.executeSessions.set(userId, { sessionId: session.sessionId, key });
     return session;
