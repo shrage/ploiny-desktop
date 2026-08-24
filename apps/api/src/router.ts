@@ -250,6 +250,7 @@ function connectionDto(
     provider: string;
     displayName: string;
     status: string;
+    metadata?: unknown;
     createdAt: Date;
   },
   isDefault = false,
@@ -259,11 +260,26 @@ function connectionDto(
     connectorId: row.connectorId,
     provider: row.provider,
     displayName: row.displayName,
+    identity: connectionIdentity(row.metadata),
     status: row.status as "pending" | "connected" | "revoked" | "error",
     capabilities: [],
     isDefault,
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+function connectionIdentity(metadata: unknown): string | undefined {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return undefined;
+  const identity = (metadata as Record<string, unknown>).identity;
+  return typeof identity === "string" && identity.trim() ? identity.trim() : undefined;
+}
+
+function connectionMetadata(metadata: unknown, identity?: string): Record<string, unknown> {
+  const current =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? (metadata as Record<string, unknown>)
+      : {};
+  return identity ? { ...current, identity } : current;
 }
 
 function mcpAssignmentDto(row: {
@@ -2327,11 +2343,29 @@ export function createRouter(deps: RouterDeps) {
                 where: { id: existing.id },
                 data: { status: "revoked" },
               });
-              row = duplicate;
+              row =
+                completed.identity && connectionIdentity(duplicate.metadata) !== completed.identity
+                  ? await deps.prisma.connection.update({
+                      where: { id: duplicate.id },
+                      data: {
+                        metadata: connectionMetadata(
+                          duplicate.metadata,
+                          completed.identity,
+                        ) as Prisma.InputJsonValue,
+                      },
+                    })
+                  : duplicate;
             } else {
               row = await deps.prisma.connection.update({
                 where: { id: existing.id },
-                data: { status: "connected", providerRef: completed.connectionRef },
+                data: {
+                  status: "connected",
+                  providerRef: completed.connectionRef,
+                  metadata: connectionMetadata(
+                    existing.metadata,
+                    completed.identity,
+                  ) as Prisma.InputJsonValue,
+                },
               });
             }
           }

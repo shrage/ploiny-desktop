@@ -233,6 +233,7 @@ export const ConnectionSchema = z.object({
   connectorId: z.string(),
   provider: z.string(),
   displayName: z.string(),
+  identity: z.string().optional(),
   status: z.enum(["pending", "connected", "revoked", "error"]),
   capabilities: z.array(z.string()),
   isDefault: z.boolean(),

@@ -8,6 +8,7 @@ import type {
   ConnectorTool,
   ManagedConnectorProvider,
 } from "@rakazo/adapter-kit";
+import { composioAccountIdentity } from "./composio-account-identity.js";
 import {
   accountsForComposioToolkit,
   addComposioAccountParameter,
@@ -436,8 +437,13 @@ export class ComposioConnector implements ComposioProvider {
   async complete(
     request: { state: string; code?: string },
     _context: AdapterContext,
-  ): Promise<{ connectionRef: string }> {
-    return { connectionRef: request.state };
+  ): Promise<{ connectionRef: string; identity?: string }> {
+    try {
+      const account = await this.sdk().connectedAccounts.get(request.state);
+      return { connectionRef: request.state, identity: composioAccountIdentity(account) };
+    } catch {
+      return { connectionRef: request.state };
+    }
   }
 
   async revoke(connectionRef: string, context: AdapterContext): Promise<void> {

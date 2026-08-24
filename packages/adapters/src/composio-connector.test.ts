@@ -338,6 +338,22 @@ describe("composio tool mapping", () => {
     });
     await expect(connector.connectionReady(context, "GMAIL", "ca_other")).resolves.toBe(false);
   });
+
+  it("returns a safe generic account identity when completion resolves", async () => {
+    const get = vi.fn().mockResolvedValue({
+      id: "ca_work",
+      alias: "Work",
+      data: { account_email: "owner@example.test", access_token: "never-displayed" },
+    });
+    const connector = new ComposioConnector({ connectedAccounts: { get } } as unknown as Composio);
+    const context = { userId: "u", signal: new AbortController().signal } as AdapterContext;
+
+    await expect(connector.complete({ state: "ca_work" }, context)).resolves.toEqual({
+      connectionRef: "ca_work",
+      identity: "owner@example.test",
+    });
+    expect(get).toHaveBeenCalledWith("ca_work");
+  });
 });
 
 describe("Composio during pnpm test", () => {

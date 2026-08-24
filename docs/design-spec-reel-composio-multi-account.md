@@ -31,7 +31,8 @@ the user finishes or cancels it.
 
 ### Beat 4 — Label the account
 
-Visible evidence: Rakazo asks for a short label after authorization:
+Visible evidence: Rakazo asks for a short label after authorization and, when Composio provides a
+safe account identity, shows it below the label:
 
 > Personal · personal@example.test
 >
@@ -61,6 +62,9 @@ the bot asks a short account-choice question before performing the action.
 - Keep the existing Integrations overlay and app rows; do not add a second navigation surface.
 - Default account selection is per bot and per app.
 - Account aliases are user-facing; provider connected-account IDs remain internal.
+- Show the best safe identity Composio provides (for example, an email or account name) below the
+  Rakazo label. If Composio does not provide one, keep the label-only row; never infer an identity
+  from an ID or a credential.
 - Revoke targets one account, never every account for the app.
 - The account list contains connected accounts only. A pending authorization is shown separately;
   revoked and failed attempts stay out of the everyday account-management view.
@@ -72,7 +76,8 @@ the bot asks a short account-choice question before performing the action.
 
 - Composio sessions use multi-account mode with explicit selection when more than one account is
   available.
-- Rakazo persists the Composio connected-account ID and the local display label for each connection.
+- Rakazo persists the Composio connected-account ID, local display label, and only a safe
+  provider-supplied account identity when one is available.
 - Rakazo allows one pending authorization per app at a time and retains the original active row when
   Composio returns an already-known connected-account ID.
 - Tool discovery exposes enough account metadata for the agent to select safely.

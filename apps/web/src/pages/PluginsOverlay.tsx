@@ -8,7 +8,7 @@ import type {
 import { abortableDelay } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { splitConnectionAccounts } from "../lib/connection-accounts";
+import { connectionAccountIdentity, splitConnectionAccounts } from "../lib/connection-accounts";
 import { rpc } from "../lib/rpc";
 
 type CatalogView = "all" | "connected" | "sources";
@@ -584,19 +584,25 @@ export function PluginsOverlay({
                           const isDefault = defaults.some(
                             (entry) => entry.botId === activeBotId && entry.connectionId === row.id,
                           );
+                          const identity = connectionAccountIdentity(row);
                           return (
                             <div key={row.id} className="flex flex-wrap items-center gap-2">
-                              <input
-                                aria-label={`Label ${row.displayName}`}
-                                value={labelDrafts[row.id] ?? row.displayName}
-                                onChange={(event) =>
-                                  setLabelDrafts((current) => ({
-                                    ...current,
-                                    [row.id]: event.target.value,
-                                  }))
-                                }
-                                className="min-w-[180px] flex-1 rounded-xl border border-[#2C2C30] bg-[#171719] px-3 py-2 text-sm text-[#ECECEE] outline-none"
-                              />
+                              <div className="min-w-[180px] flex-1">
+                                <input
+                                  aria-label={`Label ${row.displayName}`}
+                                  value={labelDrafts[row.id] ?? row.displayName}
+                                  onChange={(event) =>
+                                    setLabelDrafts((current) => ({
+                                      ...current,
+                                      [row.id]: event.target.value,
+                                    }))
+                                  }
+                                  className="w-full rounded-xl border border-[#2C2C30] bg-[#171719] px-3 py-2 text-sm text-[#ECECEE] outline-none"
+                                />
+                                {identity ? (
+                                  <div className="px-1 pt-1 text-xs text-[#9A9AA1]">{identity}</div>
+                                ) : null}
+                              </div>
                               <Button
                                 type="button"
                                 variant="pill"

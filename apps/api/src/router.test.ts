@@ -301,4 +301,153 @@ describe("duplicate connection completion", () => {
       data: { status: "revoked" },
     });
   });
+
+  it("enriches the original row when the duplicate authorization reveals its identity", async () => {
+    const pending = {
+      id: "pending-connection",
+      connectorId: "composio",
+      provider: "googlecalendar",
+      providerRef: "ca-existing",
+      displayName: "Google Calendar",
+      status: "pending",
+      createdAt: new Date("2026-08-24T00:00:00.000Z"),
+    };
+    const active = {
+      ...pending,
+      id: "active-connection",
+      status: "connected",
+      metadata: { state: "ca-existing" },
+    };
+    const update = vi
+      .fn()
+      .mockResolvedValueOnce(pending)
+      .mockResolvedValueOnce({
+        ...active,
+        metadata: { ...active.metadata, identity: "owner@example.test" },
+      });
+    const prisma = {
+      connection: {
+        findFirst: vi.fn().mockResolvedValueOnce(pending).mockResolvedValueOnce(active),
+        update,
+      },
+      botConnectorDefault: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient;
+    const deps = {
+      prisma,
+      connectors: {
+        managed: vi.fn().mockReturnValue({
+          connectionReady: vi.fn().mockResolvedValue(true),
+          complete: vi.fn().mockResolvedValue({
+            connectionRef: "ca-existing",
+            identity: "owner@example.test",
+          }),
+        }),
+      },
+      env: {
+        defaultProvider: "fake",
+        defaultModel: "fake-model",
+        webOrigin: "http://127.0.0.1:5173",
+        screenProxySecret: "fake-test-secret",
+        sandboxProvider: "fake",
+      },
+      dataDir: "/tmp/rakazo-router-test",
+    } as unknown as RouterDeps;
+    const actor = {
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      email: "user@rakazo.test",
+      isDeploymentOwner: true,
+    } satisfies Actor;
+    const handler = new RPCHandler(createRouter(deps));
+
+    const { response } = await handler.handle(
+      new Request("http://127.0.0.1/rpc/connections/complete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ json: { connectionId: pending.id } }),
+      }),
+      { prefix: "/rpc", context: { actor } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenLastCalledWith({
+      where: { id: active.id },
+      data: { metadata: { state: "ca-existing", identity: "owner@example.test" } },
+    });
+  });
+});
+
+describe("connection identity", () => {
+  it("persists the provider-supplied account identity when a connection becomes active", async () => {
+    const pending = {
+      id: "pending-connection",
+      connectorId: "composio",
+      provider: "googlecalendar",
+      providerRef: "ca-pending",
+      displayName: "Google Calendar",
+      status: "pending",
+      metadata: { state: "ca-pending" },
+      createdAt: new Date("2026-08-24T00:00:00.000Z"),
+    };
+    const connected = {
+      ...pending,
+      providerRef: "ca-connected",
+      status: "connected",
+      metadata: { state: "ca-pending", identity: "owner@example.test" },
+    };
+    const update = vi.fn().mockResolvedValue(connected);
+    const prisma = {
+      connection: {
+        findFirst: vi.fn().mockResolvedValueOnce(pending).mockResolvedValueOnce(null),
+        update,
+      },
+      botConnectorDefault: { findFirst: vi.fn().mockResolvedValue(null) },
+    } as unknown as PrismaClient;
+    const deps = {
+      prisma,
+      connectors: {
+        managed: vi.fn().mockReturnValue({
+          connectionReady: vi.fn().mockResolvedValue(true),
+          complete: vi.fn().mockResolvedValue({
+            connectionRef: "ca-connected",
+            identity: "owner@example.test",
+          }),
+        }),
+      },
+      env: {
+        defaultProvider: "fake",
+        defaultModel: "fake-model",
+        webOrigin: "http://127.0.0.1:5173",
+        screenProxySecret: "fake-test-secret",
+        sandboxProvider: "fake",
+      },
+      dataDir: "/tmp/rakazo-router-test",
+    } as unknown as RouterDeps;
+    const actor = {
+      workspaceId: "workspace-1",
+      userId: "user-1",
+      email: "user@rakazo.test",
+      isDeploymentOwner: true,
+    } satisfies Actor;
+    const handler = new RPCHandler(createRouter(deps));
+
+    const { response } = await handler.handle(
+      new Request("http://127.0.0.1/rpc/connections/complete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ json: { connectionId: pending.id } }),
+      }),
+      { prefix: "/rpc", context: { actor } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({
+      where: { id: pending.id },
+      data: {
+        status: "connected",
+        providerRef: "ca-connected",
+        metadata: { state: "ca-pending", identity: "owner@example.test" },
+      },
+    });
+  });
 });
