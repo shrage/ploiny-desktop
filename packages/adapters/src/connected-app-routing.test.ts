@@ -21,7 +21,8 @@ describe("connected app routing", () => {
     });
 
     expect(instruction).toContain("Google Drive");
-    expect(instruction).toContain("COMPOSIO_SEARCH_TOOLS");
+    expect(instruction).toContain("matching Google Drive action");
+    expect(instruction).not.toContain("COMPOSIO_SEARCH_TOOLS");
     expect(instruction).toContain("Do not use computer or browser tools first");
     expect(instruction).toContain("Never tell the user the integration is unavailable");
     expect(instruction).toContain("Find recent proposals in my Google Drive");

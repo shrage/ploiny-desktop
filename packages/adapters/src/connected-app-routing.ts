@@ -44,9 +44,7 @@ export function connectedAppRoutingPlan(input: {
 
   const firstStep = !actionsAvailable
     ? `${app.displayName} actions could not be loaded for this request. Do not use computer or browser tools as a substitute; explain that the ${app.displayName} integration needs to be retried or reconnected.`
-    : searchTool
-      ? `Begin by calling ${searchTool.name} to find the ${app.displayName} action that matches the request.`
-      : `Begin by choosing the listed ${app.displayName} tool that matches the request.`;
+    : `The harness will load the matching ${app.displayName} action before your turn. Begin with the listed direct ${app.displayName} action that matches the request.`;
 
   const instruction = [
     "CONNECTED-APP ROUTING (internal instruction):",
