@@ -166,6 +166,32 @@ export function mergeConnectedPlugins(
   return [...byProvider.values()];
 }
 
+/**
+ * A live toolkit listing confirms an app, not every historical account row for that app.
+ * Keep all explicitly connected accounts and, during a live reconnect, at most one pending
+ * account that represents the newly verified toolkit.
+ */
+export function activePluginConnections<T extends { provider: string; status: string }>(
+  rows: readonly T[],
+  liveSlugs: readonly string[],
+): T[] {
+  const active = rows.filter((row) => row.status === "connected");
+  const activeProviders = new Set(active.map((row) => row.provider.trim().toLowerCase()));
+  for (const slug of liveSlugs) {
+    const provider = slug.trim().toLowerCase();
+    if (!provider || activeProviders.has(provider)) continue;
+    const fallback = rows.find(
+      (row) =>
+        row.provider.trim().toLowerCase() === provider &&
+        (row.status === "pending" || row.status === "error"),
+    );
+    if (!fallback) continue;
+    active.push(fallback);
+    activeProviders.add(provider);
+  }
+  return active;
+}
+
 export function planLiveConnectionSync(
   rows: PluginConnectionRow[],
   liveSlugs: string[],

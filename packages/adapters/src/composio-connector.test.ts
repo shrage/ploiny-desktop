@@ -2,6 +2,7 @@ import type { Composio } from "@composio/core";
 import type { AdapterContext, ConnectorEvent, ConnectorTool } from "@rakazo/adapter-kit";
 import { describe, expect, it, vi } from "vitest";
 import {
+  activePluginConnections,
   asConnectorTools,
   ComposioConnector,
   CompositeConnector,
@@ -19,6 +20,18 @@ import {
 import { DestinationEmulator } from "./destination-emulator.js";
 
 describe("composio tool mapping", () => {
+  it("keeps revoked duplicate accounts out of an active app session", () => {
+    const rows = [
+      { id: "drive-active", provider: "googledrive", status: "connected" },
+      { id: "drive-old", provider: "googledrive", status: "revoked" },
+      { id: "calendar-active", provider: "googlecalendar", status: "connected" },
+      { id: "calendar-old", provider: "googlecalendar", status: "revoked" },
+      { id: "mail-pending", provider: "gmail", status: "pending" },
+    ];
+
+    expect(activePluginConnections(rows, ["gmail"])).toEqual([rows[0], rows[2], rows[4]]);
+  });
+
   it("maps OpenAI-style session tools and raw slugs", () => {
     const tools = asConnectorTools([
       {

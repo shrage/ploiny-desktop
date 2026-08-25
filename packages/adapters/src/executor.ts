@@ -70,6 +70,7 @@ import {
 import { builtinAgentTools } from "./builtin-tools.js";
 import { archiveSpawnedBot, spawnBot } from "./child-bots.js";
 import {
+  activePluginConnections,
   collectLogIds,
   mergeConnectedPlugins,
   needsLivePluginSync,
@@ -504,14 +505,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
         }
         const connectedComposio = mergeConnectedPlugins(composioRows, liveSlugs);
-        const activeKeys = new Set(
-          connectedComposio.map((connection) => `composio:${connection.provider}`),
-        );
-        const connectedPlugins = storedConnections.filter(
-          (connection) =>
-            connection.status === "connected" ||
-            activeKeys.has(`${connection.connectorId}:${connection.provider}`),
-        );
+        const connectedPlugins = activePluginConnections(storedConnections, liveSlugs);
         const context = {
           operationId: runId,
           traceId: runId,
