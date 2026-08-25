@@ -96,7 +96,7 @@ import {
 } from "./computer-support.js";
 import { observationToolResult, parseComputerActions } from "./computer-tools.js";
 import { checkpointAndRecordComputerWorkspace } from "./computer-workspace.js";
-import { connectedAppRoutingInstruction } from "./connected-app-routing.js";
+import { connectedAppRoutingPlan } from "./connected-app-routing.js";
 import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
 import {
   COMPACTION_BATCH_SIZE,
@@ -669,15 +669,28 @@ export function createRunExecutor(deps: ExecutorDeps) {
             .then((rules) => rules as ActionApprovalRule[]);
           return approvalRulesPromise;
         };
-        const tools = [...builtins, ...exposedConnectorTools];
-        const connectedAppRouting = connectedAppRoutingInstruction({
+        const connectedAppRouting = connectedAppRoutingPlan({
           request: task.prompt,
           apps: connectedPlugins,
           tools: exposedConnectorTools,
         });
-        const computerInstruction = graphical
-          ? "You have a persistent computer. Use computer_observe and computer_act for its visible desktop, including browsers and installed applications. Use open_path and launch_app to open graphical files, URLs, and applications. Use the file tools and shell for precise filesystem and terminal work. On a Team Computer you have your own screen; other Team bots may run at the same time on theirs. Another user may interact with your screen while you run, so re-observe when it may have changed."
-          : "You have a persistent sandbox filesystem and shell. This backend does not provide model-visible graphical control, so use the file tools and shell.";
+        const routedAppToolNames = new Set(connectedAppRouting?.appToolNames ?? []);
+        const eligibleConnectorTools = connectedAppRouting
+          ? exposedConnectorTools.filter(
+              (tool) => tool.route?.connectorId !== "composio" || routedAppToolNames.has(tool.name),
+            )
+          : exposedConnectorTools;
+        const tools = [
+          ...(connectedAppRouting?.withholdComputerTools
+            ? builtins.filter((tool) => !GRAPHICAL_AGENT_TOOLS.has(tool.name))
+            : builtins),
+          ...eligibleConnectorTools,
+        ];
+        const computerInstruction = connectedAppRouting?.withholdComputerTools
+          ? `The user named a connected ${connectedAppRouting.app.displayName} app. Its actions are available; computer and browser controls are intentionally unavailable for this request. If the app action cannot complete the task, explain why and ask whether the user wants browser work in a follow-up request.`
+          : graphical
+            ? "You have a persistent computer. Use computer_observe and computer_act for its visible desktop, including browsers and installed applications. Use open_path and launch_app to open graphical files, URLs, and applications. Use the file tools and shell for precise filesystem and terminal work. On a Team Computer you have your own screen; other Team bots may run at the same time on theirs. Another user may interact with your screen while you run, so re-observe when it may have changed."
+            : "You have a persistent sandbox filesystem and shell. This backend does not provide model-visible graphical control, so use the file tools and shell.";
         const workspaceInstruction =
           computerMode === "team"
             ? `Your Team Computer home is ${teamBotWorkspaceDirectory(bot.id)}. Relative file paths and shell working directories start there. Put intentionally shared work under shared/. Other bots' folders are visible under bots/; treat them as their working areas.`
@@ -1487,7 +1500,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
                 "run_subagent is a short helper inside this turn only. It is not a bot, has no thread, and does not show in the list. Use it for parallel work you will summarize here.",
                 "archive_bot safely archives a bot this bot created, and only that bot. Use it when the user asks to remove that bot or when it is finished and unused. The user can restore it or permanently delete it later. confirm_name must exactly match its name.",
                 pluginLine,
-                connectedAppRouting,
+                connectedAppRouting?.instruction,
                 taughtSkillsLine,
                 'For charts and data visualization, use the render_plot tool: it renders bar, line, scatter, histogram, heatmap, faceted and many more chart types from a JSON spec and attaches the PNG to the chat. Call render_plot with {"help": true} before your first chart to read the full guide.',
                 "When the user asks you to add or connect an MCP server (and gives you its details), use add_mcp_server. If it uses browser sign-in, an approval card appears in the chat — tell the user to click Authorize on it.",

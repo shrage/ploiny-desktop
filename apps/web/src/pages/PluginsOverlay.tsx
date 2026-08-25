@@ -18,6 +18,14 @@ function itemKey(item: Pick<ConnectionCatalogItem, "connectorId" | "slug">) {
   return `${item.connectorId}:${item.slug}`;
 }
 
+function appStatusLabel(item: ConnectionCatalogItem, activeCount: number, pendingCount: number) {
+  if (pendingCount > 0) return "Connection in progress";
+  if (activeCount > 1) return `${activeCount} accounts connected`;
+  if (activeCount === 1) return "Connected";
+  if (item.noAuth) return "Ready to use";
+  return "Not connected";
+}
+
 function markConnected(
   items: ConnectionCatalogItem[],
   connectorId: string,
@@ -506,9 +514,7 @@ export function PluginsOverlay({
                       <div className="min-w-0 flex-1">
                         <div className="text-[15.5px] font-medium text-[#ECECEE]">{item.name}</div>
                         <div className="text-[13.5px] text-[#7A7A80]">
-                          {item.connectorId} · {item.slug}
-                          {item.noAuth ? " · no auth" : ""}
-                          {connectedRows.length > 1 ? ` · ${connectedRows.length} accounts` : ""}
+                          {appStatusLabel(item, connectedRows.length, pendingRows.length)}
                         </div>
                       </div>
                       {connected ? (

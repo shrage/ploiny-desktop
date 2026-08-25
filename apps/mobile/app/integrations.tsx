@@ -294,7 +294,7 @@ export default function Integrations() {
               <View style={styles.grow}>
                 <Text style={styles.title}>{item.name}</Text>
                 <Text style={styles.secondary}>
-                  {item.connectorId} · {item.slug}
+                  {item.connected ? "Connected" : item.noAuth ? "Ready to use" : "Not connected"}
                 </Text>
               </View>
               <Pressable

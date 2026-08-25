@@ -115,6 +115,7 @@ test("takeover, routine, plugins, and export are reachable", async ({ page }, te
   await expect(page.getByText("Slack", { exact: true })).toBeVisible();
   await expect(page.getByText("GitHub", { exact: true })).toBeVisible();
   await expect(page.getByText("Notion", { exact: true })).toBeVisible();
+  await expect(page.getByText("composio · gmail", { exact: true })).toHaveCount(0);
   await captureScreenshot(page, testInfo, "11-plugins-catalog");
 
   const gmailRow = page.getByText("Gmail", { exact: true }).locator("..").locator("..");

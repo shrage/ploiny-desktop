@@ -1,6 +1,9 @@
 import type { ConnectorTool } from "@rakazo/adapter-kit";
 import { describe, expect, it } from "vitest";
-import { connectedAppRoutingInstruction } from "./connected-app-routing.js";
+import {
+  connectedAppRoutingInstruction,
+  connectedAppRoutingPlan,
+} from "./connected-app-routing.js";
 
 const actionSearch: ConnectorTool = {
   name: "COMPOSIO_SEARCH_TOOLS",
@@ -24,6 +27,23 @@ describe("connected app routing", () => {
     expect(instruction).toContain("Find recent proposals in my Google Drive");
   });
 
+  it("keeps the generic action tools needed to finish an on-demand app action", () => {
+    const executeAction: ConnectorTool = {
+      name: "COMPOSIO_MULTI_EXECUTE_TOOL",
+      description: "Execute a discovered action",
+      inputSchema: { type: "object", properties: {} },
+      route: { connectorId: "composio", toolName: "COMPOSIO_MULTI_EXECUTE_TOOL" },
+    };
+
+    const plan = connectedAppRoutingPlan({
+      request: "Find recent proposals in my Google Drive",
+      apps: [{ connectorId: "composio", provider: "googledrive", displayName: "Google Drive" }],
+      tools: [actionSearch, executeAction],
+    });
+
+    expect(plan?.appToolNames).toEqual(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOOL"]);
+  });
+
   it("gives Calendar the same connected-app-first rule", () => {
     const instruction = connectedAppRoutingInstruction({
       request: "Put this on my work calendar",
@@ -45,5 +65,28 @@ describe("connected app routing", () => {
         tools: [actionSearch],
       }),
     ).toBeUndefined();
+  });
+
+  it("holds computer controls until a named connected app action has been attempted", () => {
+    const plan = connectedAppRoutingPlan({
+      request: "Find the top-level folders in my Google Drive",
+      apps: [{ connectorId: "composio", provider: "googledrive", displayName: "Google Drive" }],
+      tools: [
+        {
+          name: "GOOGLEDRIVE_FIND_FOLDER",
+          description: "Find a folder",
+          inputSchema: { type: "object", properties: {} },
+          route: {
+            connectorId: "composio",
+            toolName: "GOOGLEDRIVE_FIND_FOLDER",
+            resourceId: "googledrive",
+          },
+        },
+      ],
+    });
+
+    expect(plan?.app.displayName).toBe("Google Drive");
+    expect(plan?.appToolNames).toEqual(["GOOGLEDRIVE_FIND_FOLDER"]);
+    expect(plan?.withholdComputerTools).toBe(true);
   });
 });

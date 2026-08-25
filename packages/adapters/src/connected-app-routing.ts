@@ -6,11 +6,26 @@ type ConnectedApp = {
   displayName: string;
 };
 
+export type ConnectedAppRoutingPlan = {
+  app: ConnectedApp;
+  instruction: string;
+  appToolNames: string[];
+  withholdComputerTools: true;
+};
+
 export function connectedAppRoutingInstruction(input: {
   request: string;
   apps: ConnectedApp[];
   tools: ConnectorTool[];
 }): string | undefined {
+  return connectedAppRoutingPlan(input)?.instruction;
+}
+
+export function connectedAppRoutingPlan(input: {
+  request: string;
+  apps: ConnectedApp[];
+  tools: ConnectorTool[];
+}): ConnectedAppRoutingPlan | undefined {
   if (isExplicitBrowserRequest(input.request)) return undefined;
 
   const app = input.apps.find((candidate) => requestMentionsApp(input.request, candidate));
@@ -18,7 +33,7 @@ export function connectedAppRoutingInstruction(input: {
 
   const searchTool = input.tools.find(
     (tool) =>
-      tool.route?.connectorId === "composio" && /(?:^|\.)COMPOSIO_SEARCH_TOOLS$/.test(tool.name),
+      tool.route?.connectorId === "composio" && /(?:^|\.)COMPOSIO_SEARCH_TOOLS$/i.test(tool.name),
   );
   const directTools = input.tools.filter(
     (tool) =>
@@ -31,7 +46,7 @@ export function connectedAppRoutingInstruction(input: {
     ? `Begin by calling ${searchTool.name} to find the ${app.displayName} action that matches the request.`
     : `Begin by choosing the listed ${app.displayName} tool that matches the request.`;
 
-  return [
+  const instruction = [
     "CONNECTED-APP ROUTING (internal instruction):",
     `The user explicitly asked about ${app.displayName}, which is connected. ${firstStep}`,
     "Do not use computer or browser tools first. After an action is found, use its returned schema and execute it through the connected app.",
@@ -40,6 +55,20 @@ export function connectedAppRoutingInstruction(input: {
     `In user-facing language, say “${app.displayName}” or “${app.displayName} integration”; never mention internal connector framework names, provider IDs, or raw tool names.`,
     "Examples: “Find recent proposals in my Google Drive” starts by finding a Drive file action. “Put this on my work calendar” uses the saved Work calendar account. “Open this website and click Export” uses browser control because it explicitly asks for browser work.",
   ].join("\n");
+
+  return {
+    app,
+    instruction,
+    appToolNames: (searchTool
+      ? input.tools.filter(
+          (tool) =>
+            tool.route?.connectorId === "composio" &&
+            tool.route.resourceId?.trim().toLowerCase() !== app.provider.trim().toLowerCase(),
+        )
+      : directTools
+    ).map((tool) => tool.name),
+    withholdComputerTools: true,
+  };
 }
 
 function isExplicitBrowserRequest(request: string): boolean {
