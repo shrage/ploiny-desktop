@@ -139,7 +139,24 @@ export async function expireComputerControl(
       botId,
       signal: new AbortController().signal,
     };
-    await deps.sandbox.setScreenControl?.(toComputerRef(computer), false, context, leaseId);
+    try {
+      await deps.sandbox.setScreenControl?.(toComputerRef(computer), false, context, leaseId);
+    } catch (error) {
+      if (!isMissingSandboxComputerError(error)) throw error;
+      const reset = await deps.prisma.computer.updateMany({
+        where: {
+          id: computer.id,
+          controlLeaseId: leaseId,
+          providerRef: computer.providerRef,
+        },
+        data: {
+          state: "stopped",
+          providerRef: null,
+          screenUrl: null,
+        },
+      });
+      if (reset.count !== 1) return false;
+    }
   }
 
   const released = await deps.events.finalizeComputerControlRelease({
@@ -153,4 +170,11 @@ export async function expireComputerControl(
   });
   await enqueueTakeoverContinuation(deps.jobs, released ? released.runId : null);
   return Boolean(released);
+}
+
+function isMissingSandboxComputerError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /no such container|sandbox not found|computer not found|computer .* does not exist/i.test(
+    message,
+  );
 }

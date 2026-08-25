@@ -143,6 +143,30 @@ describe("computer control leases", () => {
     expect(harness.events.finalizeComputerControlRelease).not.toHaveBeenCalled();
   });
 
+  it("releases an expired lease and reprovisions when its sandbox container is gone", async () => {
+    const harness = controlHarness({
+      revokeError: new Error('sandbox screen mode failed: 400 {"error":"no such container"}'),
+    });
+
+    await expect(expireComputerControl(harness.deps, "computer-id", "lease-1")).resolves.toBe(true);
+
+    expect(harness.prisma.computer.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: "computer-id",
+        controlLeaseId: "lease-1",
+        providerRef: "computer",
+      },
+      data: {
+        state: "stopped",
+        providerRef: null,
+        screenUrl: null,
+      },
+    });
+    expect(harness.events.finalizeComputerControlRelease).toHaveBeenCalledWith(
+      expect.objectContaining({ leaseId: "lease-1", reason: "expired" }),
+    );
+  });
+
   it("retries atomic lease cleanup when release-event persistence fails", async () => {
     const harness = controlHarness({ finalizeError: new Error("event unavailable") });
 

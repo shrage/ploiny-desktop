@@ -75,6 +75,23 @@ describe("Docker sandbox", () => {
     );
   });
 
+  it("preserves a missing-container response when revoking screen control", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ error: "no such container" }, { status: 400 })),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+
+    await expect(
+      provider.setScreenControl(
+        { id: "computer", botId: "home-bot", kind: "docker", providerRef: "computer" },
+        false,
+        context,
+        "lease-1",
+      ),
+    ).rejects.toThrow('sandbox screen mode failed: 400 {"error":"no such container"}');
+  });
+
   it("still releases the screen after the run abort signal has fired", async () => {
     const fetchMock = vi.fn(
       async (_input: string | URL | Request, _init?: RequestInit) =>
