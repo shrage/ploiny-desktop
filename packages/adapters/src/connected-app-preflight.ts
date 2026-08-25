@@ -79,18 +79,58 @@ export type PrefetchedConnectedAppAction = {
   tool: ConnectorTool;
 };
 
+/**
+ * Some action searches return compact schema references instead of the full action schema.
+ * Resolve the provider's standard schema-reference form before exposing the actions to the model.
+ */
+export function connectedAppMissingSchemaSlugs(data: unknown): string[] {
+  const slugs = new Set<string>();
+  for (const value of toolSchemas(data)) {
+    const schema = asRecord(value);
+    if (asRecord(schema?.input_schema)) continue;
+    const schemaRef = asRecord(schema?.schemaRef);
+    const args = asRecord(schemaRef?.args);
+    if (schemaRef?.tool !== "COMPOSIO_GET_TOOL_SCHEMAS" || !Array.isArray(args?.tool_slugs)) {
+      continue;
+    }
+    for (const slug of args.tool_slugs) {
+      if (typeof slug === "string" && slug.trim()) slugs.add(slug.trim());
+    }
+  }
+  return [...slugs];
+}
+
+export function mergeConnectedAppToolSchemas(initial: unknown, resolved: unknown): unknown {
+  const initialRecord = asRecord(initial);
+  if (!initialRecord) return initial;
+  const resolvedBySlug = new Map(
+    toolSchemas(resolved)
+      .map((value) => asRecord(value))
+      .filter((schema): schema is Record<string, unknown> => Boolean(schema))
+      .map((schema) => [toolSchemaSlug(schema), schema] as const)
+      .filter(([slug]) => Boolean(slug)),
+  );
+  const merged = toolSchemas(initial).map((value) => {
+    const schema = asRecord(value) ?? {};
+    const resolvedSchema = resolvedBySlug.get(toolSchemaSlug(schema));
+    return resolvedSchema ? { ...schema, ...resolvedSchema } : schema;
+  });
+  const initialSlugs = new Set(merged.map((value) => toolSchemaSlug(value)).filter(Boolean));
+  for (const [slug, schema] of resolvedBySlug) {
+    if (!initialSlugs.has(slug)) merged.push(schema);
+  }
+  return { ...initialRecord, tool_schemas: merged };
+}
+
 export function prefetchedConnectedAppActions(data: unknown): PrefetchedConnectedAppAction[] {
   const record = asRecord(data);
   const session = asRecord(record?.session);
   const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
   if (!sessionId) return [];
-  const schemas = Array.isArray(record?.tool_schemas)
-    ? record.tool_schemas
-    : Object.values(asRecord(record?.tool_schemas) ?? {});
   const seenToolNames = new Set<string>();
-  return schemas.flatMap((value) => {
+  return toolSchemas(data).flatMap((value) => {
     const schema = asRecord(value);
-    const toolSlug = typeof schema?.tool_slug === "string" ? schema.tool_slug.trim() : "";
+    const toolSlug = toolSchemaSlug(schema);
     const inputSchema = asRecord(schema?.input_schema);
     if (!toolSlug || !inputSchema) return [];
     const toolName = `connected_app_${toolSlug}`;
@@ -115,6 +155,18 @@ export function prefetchedConnectedAppActions(data: unknown): PrefetchedConnecte
       },
     ];
   });
+}
+
+function toolSchemas(data: unknown): unknown[] {
+  const record = asRecord(data);
+  return Array.isArray(record?.tool_schemas)
+    ? record.tool_schemas
+    : Object.values(asRecord(record?.tool_schemas) ?? {});
+}
+
+function toolSchemaSlug(schema: Record<string, unknown> | undefined): string {
+  const slug = schema?.tool_slug ?? schema?.slug;
+  return typeof slug === "string" ? slug.trim() : "";
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

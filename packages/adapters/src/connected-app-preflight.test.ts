@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  connectedAppMissingSchemaSlugs,
   connectedAppPreflightInstruction,
+  mergeConnectedAppToolSchemas,
   prefetchedConnectedAppActions,
 } from "./connected-app-preflight.js";
 
@@ -62,5 +64,34 @@ describe("connected app preflight", () => {
     expect(actions.map((action) => action.toolName)).toEqual([
       "connected_app_GOOGLEDRIVE_FIND_FILE",
     ]);
+  });
+
+  it("resolves referenced schemas into direct actions without app-specific logic", () => {
+    const initial = {
+      session: { id: "session-1" },
+      tool_schemas: [
+        {
+          tool_slug: "GOOGLEDRIVE_FIND_FOLDER",
+          schemaRef: {
+            tool: "COMPOSIO_GET_TOOL_SCHEMAS",
+            args: { tool_slugs: ["GOOGLEDRIVE_FIND_FOLDER"] },
+          },
+        },
+      ],
+    };
+    const resolved = {
+      tool_schemas: [
+        {
+          tool_slug: "GOOGLEDRIVE_FIND_FOLDER",
+          description: "Find folders",
+          input_schema: { type: "object", properties: { query: { type: "string" } } },
+        },
+      ],
+    };
+
+    expect(connectedAppMissingSchemaSlugs(initial)).toEqual(["GOOGLEDRIVE_FIND_FOLDER"]);
+    expect(
+      prefetchedConnectedAppActions(mergeConnectedAppToolSchemas(initial, resolved)),
+    ).toMatchObject([{ toolName: "connected_app_GOOGLEDRIVE_FIND_FOLDER" }]);
   });
 });

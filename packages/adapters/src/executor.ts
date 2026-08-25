@@ -98,7 +98,9 @@ import { observationToolResult, parseComputerActions } from "./computer-tools.js
 import { checkpointAndRecordComputerWorkspace } from "./computer-workspace.js";
 import {
   connectedAppExecutionTool,
+  connectedAppMissingSchemaSlugs,
   connectedAppPreflightInstruction,
+  mergeConnectedAppToolSchemas,
   prefetchedConnectedAppActions,
 } from "./connected-app-preflight.js";
 import { connectedAppRoutingPlan } from "./connected-app-routing.js";
@@ -681,6 +683,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
         });
         let connectedAppPreflight: string | undefined;
         let prefetchedAppActions: ReturnType<typeof prefetchedConnectedAppActions> = [];
+        let connectedAppPreflightData: unknown;
         const needsConnectedAppPreflight =
           connectedAppRouting &&
           (connectedAppRouting.appToolNames.length === 0 ||
@@ -710,12 +713,39 @@ export function createRunExecutor(deps: ExecutorDeps) {
           )) {
             if (event.type !== "result") continue;
             const result = event.data as { data?: unknown };
-            connectedAppPreflight = connectedAppPreflightInstruction({
-              appName: connectedAppRouting.app.displayName,
-              data: result.data,
-            });
-            prefetchedAppActions = prefetchedConnectedAppActions(result.data);
+            connectedAppPreflightData = result.data;
           }
+          const missingSchemaSlugs = connectedAppMissingSchemaSlugs(connectedAppPreflightData);
+          if (missingSchemaSlugs.length > 0) {
+            for await (const event of deps.connector.execute(
+              {
+                tool: "COMPOSIO_GET_TOOL_SCHEMAS",
+                executionId: `${runId}:connected-app-schema-preflight`,
+                args: { tool_slugs: missingSchemaSlugs },
+                route: {
+                  connectorId: "composio",
+                  toolName: "COMPOSIO_GET_TOOL_SCHEMAS",
+                  resourceId: "composio",
+                },
+              },
+              context,
+            )) {
+              if (event.type !== "result") continue;
+              const result = event.data as { data?: unknown };
+              connectedAppPreflightData = mergeConnectedAppToolSchemas(
+                connectedAppPreflightData,
+                result.data,
+              );
+            }
+          }
+          connectedAppPreflight = connectedAppPreflightInstruction({
+            appName: connectedAppRouting.app.displayName,
+            data: connectedAppPreflightData,
+          });
+          prefetchedAppActions = prefetchedConnectedAppActions(connectedAppPreflightData);
+          // Concrete action tools carry the validated schema. Keep generic provider mechanics
+          // out of the model's choice set when those direct actions are available.
+          if (prefetchedAppActions.length > 0) connectedAppPreflight = undefined;
         }
         const preflightTools =
           connectedAppPreflight &&
