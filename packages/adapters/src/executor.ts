@@ -743,16 +743,14 @@ export function createRunExecutor(deps: ExecutorDeps) {
             data: connectedAppPreflightData,
           });
           prefetchedAppActions = prefetchedConnectedAppActions(connectedAppPreflightData);
-          // Concrete action tools carry the validated schema. Keep generic provider mechanics
-          // out of the model's choice set when those direct actions are available.
-          if (prefetchedAppActions.length > 0) connectedAppPreflight = undefined;
         }
+        const selectedAppTools = prefetchedAppActions.map((action) => action.tool);
         const preflightTools =
           connectedAppPreflight &&
+          selectedAppTools.length === 0 &&
           !exposedConnectorTools.some((tool) => tool.name === connectedAppExecutionTool.name)
             ? [connectedAppExecutionTool]
             : [];
-        const selectedAppTools = prefetchedAppActions.map((action) => action.tool);
         const resolvedAppActions = new Map(
           prefetchedAppActions.map((action) => [action.toolName, action] as const),
         );

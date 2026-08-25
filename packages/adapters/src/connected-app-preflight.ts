@@ -30,6 +30,18 @@ export function connectedAppPreflightInstruction(input: {
     .filter((candidate) => candidate.slug)
     .slice(0, 6);
   if (!sessionId || candidates.length === 0) return undefined;
+  const hasDirectAction = schemas.some((schema) =>
+    Boolean(asRecord(asRecord(schema)?.input_schema)),
+  );
+
+  if (hasDirectAction) {
+    return [
+      "CONNECTED-APP PREFLIGHT (internal instruction):",
+      `${input.appName} action schemas are loaded as direct action tools. You MUST call the matching listed direct action before responding.`,
+      "Do not repeat the lookup, use browser controls, or say the action is unavailable before trying a listed direct action.",
+      "Supply only arguments supported by the chosen action. Use the saved account default, or ask the user to choose an account when needed.",
+    ].join("\n");
+  }
 
   return [
     "CONNECTED-APP PREFLIGHT (internal instruction):",

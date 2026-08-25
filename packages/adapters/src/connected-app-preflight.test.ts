@@ -31,6 +31,24 @@ describe("connected app preflight", () => {
     ).toBeUndefined();
   });
 
+  it("requires a listed direct action once schemas are loaded", () => {
+    const instruction = connectedAppPreflightInstruction({
+      appName: "Google Drive",
+      data: {
+        session: { id: "session-1" },
+        tool_schemas: [
+          {
+            tool_slug: "GOOGLEDRIVE_FIND_FOLDER",
+            input_schema: { type: "object", properties: {} },
+          },
+        ],
+      },
+    });
+
+    expect(instruction).toContain("direct action tool");
+    expect(instruction).not.toContain("COMPOSIO_MULTI_EXECUTE_TOOL");
+  });
+
   it("exposes only candidates with a concrete schema as direct action tools", () => {
     const actions = prefetchedConnectedAppActions({
       session: { id: "session-1" },
