@@ -21,7 +21,7 @@ describe("Composio account selection", () => {
     expect(buildComposioMultiAccountOptions(accounts)).toEqual({
       multiAccount: {
         enable: true,
-        maxAccountsPerToolkit: 5,
+        maxAccountsPerToolkit: 20,
         requireExplicitSelection: true,
       },
       connectedAccounts: {

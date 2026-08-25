@@ -16,6 +16,7 @@ import {
   type ComposioAccountRef,
   composioAccountDefaultSelector,
   composioAccountsFromConnections,
+  MAX_COMPOSIO_ACCOUNTS_PER_TOOLKIT,
   resolveComposioAccount,
   stripComposioAccount,
 } from "./composio-accounts.js";
@@ -227,7 +228,7 @@ export class ComposioConnector implements ComposioProvider {
       sandbox: { enable: false },
       multiAccount: {
         enable: true,
-        maxAccountsPerToolkit: 5,
+        maxAccountsPerToolkit: MAX_COMPOSIO_ACCOUNTS_PER_TOOLKIT,
         requireExplicitSelection: false,
       },
     });
