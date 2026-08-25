@@ -44,6 +44,19 @@ describe("connected app routing", () => {
     expect(plan?.appToolNames).toEqual(["COMPOSIO_SEARCH_TOOLS", "COMPOSIO_MULTI_EXECUTE_TOOL"]);
   });
 
+  it("does not fall back to browser tools when a named app's actions are temporarily unavailable", () => {
+    const plan = connectedAppRoutingPlan({
+      request: "Find the top-level folders in my Google Drive",
+      apps: [{ connectorId: "composio", provider: "googledrive", displayName: "Google Drive" }],
+      tools: [],
+    });
+
+    expect(plan?.app.displayName).toBe("Google Drive");
+    expect(plan?.appToolNames).toEqual([]);
+    expect(plan?.withholdComputerTools).toBe(true);
+    expect(plan?.instruction).toContain("could not be loaded");
+  });
+
   it("gives Calendar the same connected-app-first rule", () => {
     const instruction = connectedAppRoutingInstruction({
       request: "Put this on my work calendar",

@@ -40,18 +40,24 @@ export function connectedAppRoutingPlan(input: {
       tool.route?.connectorId === "composio" &&
       tool.route.resourceId?.trim().toLowerCase() === app.provider.trim().toLowerCase(),
   );
-  if (!searchTool && directTools.length === 0) return undefined;
+  const actionsAvailable = Boolean(searchTool) || directTools.length > 0;
 
-  const firstStep = searchTool
-    ? `Begin by calling ${searchTool.name} to find the ${app.displayName} action that matches the request.`
-    : `Begin by choosing the listed ${app.displayName} tool that matches the request.`;
+  const firstStep = !actionsAvailable
+    ? `${app.displayName} actions could not be loaded for this request. Do not use computer or browser tools as a substitute; explain that the ${app.displayName} integration needs to be retried or reconnected.`
+    : searchTool
+      ? `Begin by calling ${searchTool.name} to find the ${app.displayName} action that matches the request.`
+      : `Begin by choosing the listed ${app.displayName} tool that matches the request.`;
 
   const instruction = [
     "CONNECTED-APP ROUTING (internal instruction):",
     `The user explicitly asked about ${app.displayName}, which is connected. ${firstStep}`,
-    "Do not use computer or browser tools first. After an action is found, use its returned schema and execute it through the connected app.",
+    actionsAvailable
+      ? "Do not use computer or browser tools first. After an action is found, use its returned schema and execute it through the connected app."
+      : "Keep this request on the connected-app path; do not attempt browser work.",
     "Use the saved account default when one applies. If multiple accounts could apply and no default or request selects one, ask a short account-choice question before acting.",
-    "Never tell the user the integration is unavailable until the connected-app action search has been attempted. Browser control is allowed only when that search has no matching action, the connected-app action fails, or the user explicitly requests browser work.",
+    actionsAvailable
+      ? "Never tell the user the integration is unavailable until the connected-app action search has been attempted. Browser control is allowed only when that search has no matching action, the connected-app action fails, or the user explicitly requests browser work."
+      : "The action catalog has already been attempted. Do not claim that browser sign-in would fix it.",
     `In user-facing language, say “${app.displayName}” or “${app.displayName} integration”; never mention internal connector framework names, provider IDs, or raw tool names.`,
     "Examples: “Find recent proposals in my Google Drive” starts by finding a Drive file action. “Put this on my work calendar” uses the saved Work calendar account. “Open this website and click Export” uses browser control because it explicitly asks for browser work.",
   ].join("\n");
