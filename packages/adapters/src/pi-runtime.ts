@@ -309,6 +309,12 @@ export function describeToolActivity(toolName: string, args: unknown): string {
   if (toolName === "computer_act") return "Operating the computer";
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
   if (toolName === "remember") return "Saving a note to memory";
+  if (/(?:^|\.)COMPOSIO_SEARCH_TOOLS$/.test(toolName)) {
+    return "Finding the right connected-app action";
+  }
+  if (/(?:^|\.)COMPOSIO_(?:MULTI_)?EXECUTE_TOOL$/.test(toolName)) {
+    return "Using the connected app";
+  }
   const mcp = toolName.match(/^mcp__(.+?)__(.+)$/);
   if (mcp) return `Using ${mcp[1]}: ${mcp[2]}`;
   return `Using ${toolName}`;

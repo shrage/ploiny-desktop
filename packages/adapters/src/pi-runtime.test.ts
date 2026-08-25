@@ -26,6 +26,13 @@ describe("describeToolActivity", () => {
     expect(describeToolActivity("mcp__demo-oauth__greet", {})).toBe("Using demo-oauth: greet");
   });
 
+  it("keeps connected-app framework tool names out of the live activity", () => {
+    expect(describeToolActivity("COMPOSIO_SEARCH_TOOLS", {})).toBe(
+      "Finding the right connected-app action",
+    );
+    expect(describeToolActivity("COMPOSIO_MULTI_EXECUTE_TOOL", {})).toBe("Using the connected app");
+  });
+
   it("truncates long details and collapses whitespace", () => {
     const long = `x${"y".repeat(200)}`;
     const line = describeToolActivity("shell", { command: `a\n\t${long}` });
