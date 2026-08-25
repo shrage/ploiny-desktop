@@ -771,6 +771,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
             : builtins),
           ...eligibleConnectorTools,
         ];
+        if (connectedAppRouting) {
+          console.info("connected app routing prepared", {
+            runId,
+            app: connectedAppRouting.app.displayName,
+            directActionCount: selectedAppTools.length,
+            genericActionCount: preflightTools.length,
+            connectorToolCount: eligibleConnectorTools.length,
+            computerToolsWithheld: connectedAppRouting.withholdComputerTools,
+          });
+        }
         const computerInstruction = connectedAppRouting?.withholdComputerTools
           ? `The user named a connected ${connectedAppRouting.app.displayName} app. Its actions are available; computer and browser controls are intentionally unavailable for this request. If the app action cannot complete the task, explain why and ask whether the user wants browser work in a follow-up request.`
           : graphical
