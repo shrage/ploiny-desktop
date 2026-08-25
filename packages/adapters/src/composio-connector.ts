@@ -508,7 +508,11 @@ export class ConnectorRegistry implements ConnectorProvider {
       [...this.providers].map(async ([connectorId, provider]) => {
         try {
           return [connectorId, await provider.discoverTools(context)] as const;
-        } catch {
+        } catch (error) {
+          console.warn("connector tool discovery failed", {
+            connectorId,
+            error: sanitizeComposioError(error),
+          });
           return [connectorId, []] as const;
         }
       }),
