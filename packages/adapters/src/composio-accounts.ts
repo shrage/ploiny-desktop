@@ -5,8 +5,8 @@ export interface ComposioAccountRef {
   email?: string;
 }
 
-/** Allow a single app to use every connected account without blocking other app discovery. */
-export const MAX_COMPOSIO_ACCOUNTS_PER_TOOLKIT = 20;
+/** Provider-supported maximum; enough for all currently connected accounts. */
+export const MAX_COMPOSIO_ACCOUNTS_PER_TOOLKIT = 10;
 
 export interface ComposioMultiAccountOptions {
   multiAccount: {
