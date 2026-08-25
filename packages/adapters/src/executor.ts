@@ -99,6 +99,7 @@ import { checkpointAndRecordComputerWorkspace } from "./computer-workspace.js";
 import {
   connectedAppExecutionTool,
   connectedAppPreflightInstruction,
+  prefetchedConnectedAppActions,
 } from "./connected-app-preflight.js";
 import { connectedAppRoutingPlan } from "./connected-app-routing.js";
 import { handoffToGroupBot, loadGroupContext } from "./group-handoff.js";
@@ -679,6 +680,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           tools: exposedConnectorTools,
         });
         let connectedAppPreflight: string | undefined;
+        let prefetchedAppActions: ReturnType<typeof prefetchedConnectedAppActions> = [];
         const needsConnectedAppPreflight =
           connectedAppRouting &&
           (connectedAppRouting.appToolNames.length === 0 ||
@@ -712,6 +714,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
               appName: connectedAppRouting.app.displayName,
               data: result.data,
             });
+            prefetchedAppActions = prefetchedConnectedAppActions(result.data);
           }
         }
         const preflightTools =
@@ -719,15 +722,21 @@ export function createRunExecutor(deps: ExecutorDeps) {
           !exposedConnectorTools.some((tool) => tool.name === connectedAppExecutionTool.name)
             ? [connectedAppExecutionTool]
             : [];
+        const selectedAppTools = prefetchedAppActions.map((action) => action.tool);
+        const resolvedAppActions = new Map(
+          prefetchedAppActions.map((action) => [action.toolName, action] as const),
+        );
         const routedAppToolNames = new Set([
-          ...(connectedAppRouting?.appToolNames ?? []),
+          ...(selectedAppTools.length > 0
+            ? selectedAppTools.map((tool) => tool.name)
+            : (connectedAppRouting?.appToolNames ?? [])),
           ...preflightTools.map((tool) => tool.name),
         ]);
         const eligibleConnectorTools = connectedAppRouting
-          ? [...exposedConnectorTools, ...preflightTools].filter(
+          ? [...exposedConnectorTools, ...preflightTools, ...selectedAppTools].filter(
               (tool) => tool.route?.connectorId !== "composio" || routedAppToolNames.has(tool.name),
             )
-          : [...exposedConnectorTools, ...preflightTools];
+          : [...exposedConnectorTools, ...preflightTools, ...selectedAppTools];
         const tools = [
           ...(connectedAppRouting?.withholdComputerTools
             ? builtins.filter((tool) => !GRAPHICAL_AGENT_TOOLS.has(tool.name))
@@ -1454,10 +1463,23 @@ export function createRunExecutor(deps: ExecutorDeps) {
           }
           if (deps.connector) {
             let result: unknown = { error: `unknown tool ${name}` };
-            for await (const event of deps.connector.execute(
-              { tool: name, args, executionId: effectKey, route: connectorRoutes.get(name) },
-              context,
-            )) {
+            const prefetchedAction = resolvedAppActions.get(name);
+            const call = prefetchedAction
+              ? {
+                  tool: "COMPOSIO_MULTI_EXECUTE_TOOL",
+                  args: {
+                    tools: [{ tool_slug: prefetchedAction.toolSlug, arguments: args }],
+                    session_id: prefetchedAction.sessionId,
+                  },
+                  executionId: effectKey,
+                  route: {
+                    connectorId: "composio",
+                    toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+                    resourceId: "composio",
+                  },
+                }
+              : { tool: name, args, executionId: effectKey, route: connectorRoutes.get(name) };
+            for await (const event of deps.connector.execute(call, context)) {
               if (event.type === "result") {
                 result = event.data;
                 const logIds = collectLogIds(event.data);

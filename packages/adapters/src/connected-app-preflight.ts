@@ -72,6 +72,51 @@ export const connectedAppExecutionTool: ConnectorTool = {
   },
 };
 
+export type PrefetchedConnectedAppAction = {
+  toolName: string;
+  toolSlug: string;
+  sessionId: string;
+  tool: ConnectorTool;
+};
+
+export function prefetchedConnectedAppActions(data: unknown): PrefetchedConnectedAppAction[] {
+  const record = asRecord(data);
+  const session = asRecord(record?.session);
+  const sessionId = typeof session?.id === "string" ? session.id.trim() : "";
+  if (!sessionId) return [];
+  const schemas = Array.isArray(record?.tool_schemas)
+    ? record.tool_schemas
+    : Object.values(asRecord(record?.tool_schemas) ?? {});
+  const seenToolNames = new Set<string>();
+  return schemas.flatMap((value) => {
+    const schema = asRecord(value);
+    const toolSlug = typeof schema?.tool_slug === "string" ? schema.tool_slug.trim() : "";
+    const inputSchema = asRecord(schema?.input_schema);
+    if (!toolSlug || !inputSchema) return [];
+    const toolName = `connected_app_${toolSlug}`;
+    if (seenToolNames.has(toolName)) return [];
+    seenToolNames.add(toolName);
+    return [
+      {
+        toolName,
+        toolSlug,
+        sessionId,
+        tool: {
+          name: toolName,
+          description:
+            typeof schema?.description === "string" ? schema.description : `Use ${toolSlug}.`,
+          inputSchema,
+          route: {
+            connectorId: "composio",
+            toolName: "COMPOSIO_MULTI_EXECUTE_TOOL",
+            resourceId: "composio",
+          },
+        },
+      },
+    ];
+  });
+}
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)

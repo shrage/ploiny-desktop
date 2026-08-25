@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { connectedAppPreflightInstruction } from "./connected-app-preflight.js";
+import {
+  connectedAppPreflightInstruction,
+  prefetchedConnectedAppActions,
+} from "./connected-app-preflight.js";
 
 describe("connected app preflight", () => {
   it("turns a generic action lookup into an internal next-step instruction", () => {
@@ -24,5 +27,40 @@ describe("connected app preflight", () => {
     expect(
       connectedAppPreflightInstruction({ appName: "Google Drive", data: { success: false } }),
     ).toBeUndefined();
+  });
+
+  it("exposes only candidates with a concrete schema as direct action tools", () => {
+    const actions = prefetchedConnectedAppActions({
+      session: { id: "session-1" },
+      tool_schemas: [
+        {
+          tool_slug: "GOOGLEDRIVE_FIND_FILE",
+          description: "Find Drive files",
+          input_schema: { type: "object", properties: { query: { type: "string" } } },
+        },
+        { tool_slug: "GOOGLEDRIVE_FIND_FOLDER", schemaRef: "later" },
+      ],
+    });
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({
+      toolName: "connected_app_GOOGLEDRIVE_FIND_FILE",
+      toolSlug: "GOOGLEDRIVE_FIND_FILE",
+      sessionId: "session-1",
+    });
+  });
+
+  it("does not expose duplicate actions when the catalog repeats a schema", () => {
+    const actions = prefetchedConnectedAppActions({
+      session: { id: "session-1" },
+      tool_schemas: [
+        { tool_slug: "GOOGLEDRIVE_FIND_FILE", input_schema: { type: "object" } },
+        { tool_slug: "GOOGLEDRIVE_FIND_FILE", input_schema: { type: "object" } },
+      ],
+    });
+
+    expect(actions.map((action) => action.toolName)).toEqual([
+      "connected_app_GOOGLEDRIVE_FIND_FILE",
+    ]);
   });
 });

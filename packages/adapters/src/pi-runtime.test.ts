@@ -31,6 +31,9 @@ describe("describeToolActivity", () => {
       "Finding the right connected-app action",
     );
     expect(describeToolActivity("COMPOSIO_MULTI_EXECUTE_TOOL", {})).toBe("Using the connected app");
+    expect(describeToolActivity("connected_app_GOOGLEDRIVE_FIND_FILE", {})).toBe(
+      "Using the connected app",
+    );
   });
 
   it("truncates long details and collapses whitespace", () => {

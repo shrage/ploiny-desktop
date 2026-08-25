@@ -309,6 +309,7 @@ export function describeToolActivity(toolName: string, args: unknown): string {
   if (toolName === "computer_act") return "Operating the computer";
   if (toolName === "run_subagent") return `Delegating to helper: ${detail(record.name)}`;
   if (toolName === "remember") return "Saving a note to memory";
+  if (toolName.startsWith("connected_app_")) return "Using the connected app";
   if (/(?:^|\.)COMPOSIO_SEARCH_TOOLS$/.test(toolName)) {
     return "Finding the right connected-app action";
   }
