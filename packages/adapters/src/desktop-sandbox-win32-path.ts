@@ -31,7 +31,6 @@ const SYNCHRONIZE = 0x00100000;
 const FILE_SHARE_ALL = 0x00000007;
 const FILE_ATTRIBUTE_NORMAL = 0x00000080;
 const FILE_ATTRIBUTE_DIRECTORY = 0x00000010;
-const O_RDWR_BINARY = 0x8002;
 /** NTSTATUS 0xC0000035 as signed int32 */
 const STATUS_OBJECT_NAME_COLLISION = -1073741771;
 /** NTSTATUS 0xC0000034 as signed int32 */
@@ -46,8 +45,8 @@ function escapeWorkspace(): never {
 type NtFns = {
   NtCreateFile: koffi.KoffiFunction;
   RtlInitUnicodeString: koffi.KoffiFunction;
-  getOsFhandle: koffi.KoffiFunction;
-  openOsFhandle: koffi.KoffiFunction;
+  uvGetOsFhandle: koffi.KoffiFunction;
+  uvOpenOsFhandle: koffi.KoffiFunction;
   CloseHandle: koffi.KoffiFunction;
   GetFinalPathNameByHandleW: koffi.KoffiFunction;
   objectAttributesSize: number;
@@ -72,7 +71,11 @@ function nt(): NtFns {
   if (cached) return cached;
   const ntdll = koffi.load("ntdll.dll");
   const kernel32 = koffi.load("kernel32.dll");
-  const msvcrt = koffi.load("msvcrt.dll");
+  // Node's numeric fs descriptors belong to libuv's descriptor table. They are
+  // not CRT descriptors, so _get_osfhandle returns -1 for otherwise valid
+  // FileHandle.fd values on Windows. Use the libuv bridge exported by Node and
+  // return newly opened HANDLEs to the same table before calling node:fs.
+  const node = koffi.load(process.execPath);
 
   koffi.struct("UNICODE_STRING", {
     Length: "uint16_t",
@@ -99,8 +102,8 @@ function nt(): NtFns {
     RtlInitUnicodeString: ntdll.func(
       "void __stdcall RtlInitUnicodeString(_Out_ UNICODE_STRING *DestinationString, void *SourceString)",
     ),
-    getOsFhandle: msvcrt.func("intptr_t __cdecl _get_osfhandle(int fd)"),
-    openOsFhandle: msvcrt.func("int __cdecl _open_osfhandle(intptr_t handle, int flags)"),
+    uvGetOsFhandle: node.func("intptr_t __cdecl uv_get_osfhandle(int fd)"),
+    uvOpenOsFhandle: node.func("int __cdecl uv_open_osfhandle(void *handle)"),
     CloseHandle: kernel32.func("int __stdcall CloseHandle(void *hObject)"),
     GetFinalPathNameByHandleW: kernel32.func(
       "uint32_t __stdcall GetFinalPathNameByHandleW(void *hFile, void *lpszFilePath, uint32_t cchFilePath, uint32_t dwFlags)",
@@ -117,7 +120,7 @@ function nt(): NtFns {
  */
 export function pathFromDirectoryFd(fd: number): string {
   const api = nt();
-  const handle = api.getOsFhandle(fd) as number | bigint;
+  const handle = api.uvGetOsFhandle(fd) as number | bigint;
   if (handle === -1n || handle === -1) escapeWorkspace();
 
   const flags = 0; // VOLUME_NAME_DOS
@@ -148,7 +151,7 @@ function ntCreateRelative(
 ): { fd: number; status: number } {
   assertLeafName(name);
   const api = nt();
-  const root = api.getOsFhandle(parentFd) as number | bigint;
+  const root = api.uvGetOsFhandle(parentFd) as number | bigint;
   if (root === -1 || root === -1n) escapeWorkspace();
 
   const nameBuf = Buffer.from(`${name}\0`, "utf16le");
@@ -183,7 +186,7 @@ function ntCreateRelative(
 
   const handle = handleOut[0];
   if (handle == null) escapeWorkspace();
-  const fd = api.openOsFhandle(handle as number | bigint, O_RDWR_BINARY) as number;
+  const fd = api.uvOpenOsFhandle(handle) as number;
   if (fd < 0) {
     api.CloseHandle(handle as number | bigint);
     escapeWorkspace();

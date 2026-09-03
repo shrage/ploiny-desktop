@@ -44,6 +44,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 });
 
 const { DesktopSandboxProvider } = await import("./desktop-sandbox.js");
+const { win32NtRelativeAvailable } = await import("./desktop-sandbox-win32-path.js");
 
 const ctx = {
   operationId: "operation",
@@ -313,6 +314,8 @@ describe("desktop sandbox write containment without O_NOFOLLOW", () => {
 
   it("still creates and replaces ordinary workspace files", async () => {
     const { desktop, computer } = await fixture("ordinary-files");
+
+    if (process.platform === "win32") expect(win32NtRelativeAvailable()).toBe(true);
 
     await desktop.writeFile(computer, {
       path: "notes/result.txt",
